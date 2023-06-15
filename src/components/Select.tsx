@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, KeyboardEventHandler } from 'react'
 import styles from '../select.module.css'
 
-type SelectOption = {
+export type SelectOption = {
   label: string
   value: number | string
 }
@@ -32,31 +32,82 @@ const Select = ({ multiple, value, onChange, options }: SelectProps) => {
   }
 
   const closeOptionsMenu = () => setIsOpen(false)
+
   const selectOption = (option: SelectOption) => {
     if (multiple) {
-      if (value.includes(option)) onChange(value.filter(opt => opt !== option))
+      if (value.includes(option)) {
+        onChange(value.filter(opt => opt !== option))
+      } else {
+        onChange([...value, option])
+      }
     } else {
       if (option !== value) onChange(option)
     }
   }
-  const isOptionSelected = (option: SelectOption) => option === value
+
+  const isOptionSelected = (option: SelectOption) => {
+    return multiple ? value.includes(option) : option === value
+  }
+
   const isOptionHighlited = (index: number) => setHighlightedIndex(index)
 
   useEffect(() => {
     setHighlightedIndex(0)
   }, [isOpen])
 
+  const handler = (e: KeyboardEvent) => {
+    switch (e.code) {
+      case 'Enter':
+      case 'Space':
+        setIsOpen(prev => !prev)
+
+        if (isOpen) selectOption(options[highlightedIndex])
+        break
+      case 'ArrowUp':
+      case 'ArrowDown':
+        if (!isOpen) {
+          setIsOpen(true)
+          break
+        }
+
+        const newValue = highlightedIndex + (e.code === 'ArrowDown' ? 1 : -1)
+
+        if (newValue >= 0 && newValue < options.length) {
+          setHighlightedIndex(newValue)
+          break
+        }
+        break
+      case 'Escape':
+        setIsOpen(false)
+        break
+    }
+  }
+
   return (
     <div
       tabIndex={0}
+      onKeyDown={handler}
       className={styles.container}
       onClick={() => setIsOpen(prev => !prev)}
       onBlur={closeOptionsMenu}
-      onKeyDown={e => {
-        if (e.key === 'Escape') closeOptionsMenu()
-      }}
     >
-      <span className={styles.value}>{value?.label}</span>
+      <span className={styles.value}>
+        {multiple
+          ? value.map(v => (
+              <button
+                key={v.value}
+                onClick={e => {
+                  e.stopPropagation()
+                  selectOption(v)
+                }}
+                className={styles['option-badge']}
+              >
+                {v.label}
+                <span className={styles['remove-btn']}>&times;</span>
+              </button>
+            ))
+          : value?.label}
+      </span>
       <button className={styles['clear-btn']} onClick={clearOptions}>
         &times;
       </button>
